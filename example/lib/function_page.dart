@@ -30,6 +30,7 @@ class _FunctionPageState extends State<FunctionPage> {
   bool modalVisible = false;
   bool modalRodadaVisible = false;
   final TextEditingController _controllerQuantidade = TextEditingController();
+  bool vendaPorCombo = false; // Default to off
 
   @override
   void deactivate() {
@@ -62,36 +63,41 @@ class _FunctionPageState extends State<FunctionPage> {
     int inicial = rangeInicial;
     int quantidadeVendida = int.tryParse(_controllerQuantidade.text) ?? 0;
 
-    // Calcule o final com base na quantidade vendida
-    int finalVenda = inicial + quantidadeVendida - 1;
+    // Adjust quantity for combo logic
+    int quantidadeFinal = vendaPorCombo ? quantidadeVendida * 6 : quantidadeVendida;
 
-    // Verifique se o intervalo é válido
+    // Calculate the final sale value
+    double totalVenda = vendaPorCombo
+        ? (quantidadeFinal ~/ 6) * double.parse(valorCartela)
+        : quantidadeVendida * double.parse(valorCartela);
+
+    // Validate range
+    int finalVenda = inicial + quantidadeFinal - 1;
     if (inicial <= 0 || quantidadeVendida <= 0 || finalVenda > int.parse(maxCartela) || inicial < int.parse(minCartela)) {
       _showAlert('Erro', 'O intervalo de venda é inválido ou está fora do intervalo configurado');
       return;
     }
 
-    double totalVenda = quantidadeVendida * double.parse(valorCartela);
-
     setState(() {
-      totalQuantidade += quantidadeVendida;
+      totalQuantidade += quantidadeFinal;
       totalValor += totalVenda;
       intervalosVendidos.add({'inicial': inicial, 'final': finalVenda});
     });
 
+    // Prepare printData
     final printData = '''
-      \n\n\n\n\n
-      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Boa sorte
-      ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(0)}\n
-      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(20)}$inicial - $finalVenda
-      ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(0)}\n
-      ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Rodada: $rodada
-      Vendedor: $nomeVendedor
-      Quantidade Vendida: $quantidadeVendida
-      Valor Unitário: R\$${valorCartela}
-      Total: R\$${totalVenda.toStringAsFixed(2)}\n
-      \n\n\n\n\n
-    ''';
+    \n\n\n
+    ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Boa sorte
+    ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}--------------------------
+    ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(14)}Rodada: $rodada
+    Vendedor: $nomeVendedor
+    Quantidade: $quantidadeFinal${!vendaPorCombo ? ' x R\$${valorCartela}' : ''}
+    
+    ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(20)}$inicial - $finalVenda
+    
+    ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Total: R\$${totalVenda.toStringAsFixed(2)}\n
+    \n\n\n\n\n
+  ''';
 
     final Uint8List printDataBytes = Uint8List.fromList(utf8.encode(printData));
     try {
@@ -105,12 +111,13 @@ class _FunctionPageState extends State<FunctionPage> {
       );
     }
 
-    // Atualize o rangeInicial para o próximo intervalo
+    // Update rangeInicial for next sale
     setState(() {
-      rangeInicial = finalVenda + 1; // Atualiza o rangeInicial para o próximo valor
-      _controllerQuantidade.clear(); // Limpa o campo de quantidade
+      rangeInicial = finalVenda + 1;
+      _controllerQuantidade.clear();
     });
   }
+
 
   void finalizarRodada() async{
     final printData = '''
@@ -189,7 +196,20 @@ class _FunctionPageState extends State<FunctionPage> {
               TextFormField(
                 decoration: InputDecoration(labelText: 'Valor por Cartela (ex: 1,25)'),
                 keyboardType: TextInputType.number,
+                enabled: !vendaPorCombo, // Disable if vendaPorCombo is true
                 onChanged: (value) => setState(() => valorCartela = value),
+              ),
+              SwitchListTile(
+                title: Text('Venda por combo'),
+                value: vendaPorCombo,
+                onChanged: (value) {
+                  setState(() {
+                    vendaPorCombo = value;
+                    if (vendaPorCombo) {
+                      valorCartela = '10'; // Set fixed value for combo
+                    }
+                  });
+                },
               ),
               SizedBox(height: 20),
               Row(
