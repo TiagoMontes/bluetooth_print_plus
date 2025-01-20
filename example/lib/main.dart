@@ -1,4 +1,5 @@
 import 'package:bluetooth_print_plus_example/bluetooth_page.dart';
+import 'package:bluetooth_print_plus_example/function_page.dart';
 import 'package:bluetooth_print_plus_example/settings_page.dart';
 import 'package:flutter/material.dart';
 import 'app_page.dart';
@@ -31,7 +32,7 @@ class HomePage extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => BluetoothPage()),
+                  MaterialPageRoute(builder: (context) => FunctionPage()),
                 );
               },
               child: const Text('Configurar Bluetooth'),

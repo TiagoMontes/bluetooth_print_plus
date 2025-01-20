@@ -1,9 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.example.bluetooth_print_plus.bluetooth_print_plus_example">
     <application
-        android:label="BluetoothPrintPlus"
+        android:label="Bingor"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/branding">
         <activity
             android:name=".MainActivity"
             android:exported="true"

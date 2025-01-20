@@ -3,13 +3,13 @@ import 'package:bluetooth_print_plus_example/command_tool.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
+import 'package:intl/intl.dart';
 
 enum CmdType { Tsc, Cpcl, Esc }
 
 class FunctionPage extends StatefulWidget {
-  final BluetoothDevice device;
 
-  const FunctionPage(this.device, {super.key});
+  const FunctionPage({super.key});
 
   @override
   State<FunctionPage> createState() => _FunctionPageState();
@@ -23,7 +23,6 @@ class _FunctionPageState extends State<FunctionPage> {
   int rangeInicial = 0;
   int rangeFinal = 0;
   String valorCartela = '';
-  String nomeVendedor = '';
   int totalQuantidade = 0;
   double totalValor = 0.0;
   List<Map<String, int>> intervalosVendidos = [];
@@ -47,8 +46,8 @@ class _FunctionPageState extends State<FunctionPage> {
       _showAlert('Erro', 'Por favor, insira valores válidos para o intervalo inicial e final');
       return;
     }
-    if (nomeVendedor.isEmpty || valorCartela.isEmpty) {
-      _showAlert('Erro', 'Por favor, preencha o nome do vendedor e o valor por cartela');
+    if (valorCartela.isEmpty) {
+      _showAlert('Erro', 'Por favor, preencha o valor por cartela');
       return;
     }
 
@@ -84,19 +83,22 @@ class _FunctionPageState extends State<FunctionPage> {
       intervalosVendidos.add({'inicial': inicial, 'final': finalVenda});
     });
 
+    final now = DateTime.now();
+    final formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
+
     // Prepare printData
     final printData = '''
-    \n\n\n
+    \n\n
     ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Boa sorte
     ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}--------------------------
     ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(14)}Rodada: $rodada
-    Vendedor: $nomeVendedor
     Quantidade: $quantidadeFinal${!vendaPorCombo ? ' x R\$${valorCartela}' : ''}
+    Data/Hora: $formattedDate
     
     ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(20)}$inicial - $finalVenda
     
     ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Total: R\$${totalVenda.toStringAsFixed(2)}\n
-    \n\n\n\n\n
+    \n\n
   ''';
 
     final Uint8List printDataBytes = Uint8List.fromList(utf8.encode(printData));
@@ -119,16 +121,18 @@ class _FunctionPageState extends State<FunctionPage> {
   }
 
 
-  void finalizarRodada() async{
+  void finalizarRodada() async {
+    final now = DateTime.now();
+    final formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
+
     final printData = '''
-      \n\n\n\n\n
-      Rodada Finalizada!
-      Rodada: $rodada
-      Vendedor: $nomeVendedor
-      Intervalo: ${intervalosVendidos.first['inicial']}-${intervalosVendidos.last['final']}
-      Quantidade Vendida: $totalQuantidade
-      Total: R\$${totalValor}
-      \n\n\n\n\n
+      \n\n
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Rodada Finalizada!
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}Intervalo: ${intervalosVendidos.first['inicial']}-${intervalosVendidos.last['final']}
+      ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Quantidade Vendida: $totalQuantidade
+      ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Total: R\$${totalValor.toStringAsFixed(2)}
+      ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Data/Hora: $formattedDate
+      \n\n
     ''';
 
     final Uint8List printDataBytes = Uint8List.fromList(utf8.encode(printData));
@@ -142,6 +146,7 @@ class _FunctionPageState extends State<FunctionPage> {
         SnackBar(content: Text("Erro ao imprimir: $e")),
       );
     }
+  }
 
     setState(() {
       rodada++;
@@ -164,75 +169,119 @@ class _FunctionPageState extends State<FunctionPage> {
       builder: (BuildContext context) {
         return Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom, // Para evitar sobreposição do teclado
+            bottom: MediaQuery.of(context).viewInsets.bottom,
             top: 16.0,
             left: 16.0,
             right: 16.0,
           ),
-          child: Wrap(
-            children: [
-              Text(
-                'Configurar Cartela',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 10),
-              TextFormField(
-                decoration: InputDecoration(labelText: 'Cartela Inicial'),
-                keyboardType: TextInputType.number,
-                onChanged: (value) => setState(() => minCartela = value),
-              ),
-              SizedBox(height: 10),
-              TextFormField(
-                decoration: InputDecoration(labelText: 'Cartela Final'),
-                keyboardType: TextInputType.number,
-                onChanged: (value) => setState(() => maxCartela = value),
-              ),
-              SizedBox(height: 10),
-              TextFormField(
-                decoration: InputDecoration(labelText: 'Nome do Vendedor'),
-                onChanged: (value) => setState(() => nomeVendedor = value),
-              ),
-              SizedBox(height: 10),
-              TextFormField(
-                decoration: InputDecoration(labelText: 'Valor por Cartela (ex: 1,25)'),
-                keyboardType: TextInputType.number,
-                enabled: !vendaPorCombo, // Disable if vendaPorCombo is true
-                onChanged: (value) => setState(() => valorCartela = value),
-              ),
-              SwitchListTile(
-                title: Text('Venda por combo'),
-                value: vendaPorCombo,
-                onChanged: (value) {
-                  setState(() {
-                    vendaPorCombo = value;
-                    if (vendaPorCombo) {
-                      valorCartela = '10'; // Set fixed value for combo
-                    }
-                  });
-                },
-              ),
-              SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end, // Alinha o botão à direita
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setModalState) {
+              String? cartelaInicialError;
+              String? cartelaFinalError;
+              String? valorCartelaError;
+
+              void validarCampos() {
+                setModalState(() {
+                  cartelaInicialError = minCartela.isEmpty ? 'Campo obrigatório' : null;
+                  cartelaFinalError = maxCartela.isEmpty ? 'Campo obrigatório' : null;
+                  valorCartelaError = valorCartela.isEmpty ? 'Campo obrigatório' : null;
+                });
+
+                if (cartelaInicialError == null &&
+                    cartelaFinalError == null &&
+                    valorCartelaError == null) {
+                  salvarConfiguracao();
+                  Navigator.pop(context);
+                }
+              }
+
+              return Wrap(
                 children: [
+                  Text(
+                    'Configurar Cartela',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 10),
+                  TextFormField(
+                    decoration: InputDecoration(
+                      labelText: 'Cartela Inicial',
+                      errorText: cartelaInicialError,
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) => setModalState(() => minCartela = value),
+                  ),
+                  SizedBox(height: 10),
+                  TextFormField(
+                    decoration: InputDecoration(
+                      labelText: 'Cartela Final',
+                      errorText: cartelaFinalError,
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) => setModalState(() => maxCartela = value),
+                  ),
+                  SizedBox(height: 10),
+                  SizedBox(height: 10),
+                  TextFormField(
+                    decoration: InputDecoration(
+                      labelText: vendaPorCombo
+                          ? 'Valor do Combo (ex: 15.00)'
+                          : 'Valor Unitário (ex: 2.50)',
+                      errorText: valorCartelaError,
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) {
+                      setModalState(() {
+                        valorCartela = value.replaceAll(',', '.');
+                      });
+                    },
+                  ),
+                  SizedBox(height: 10),
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0), // Padding de 16px em cima e embaixo
-                    child: ElevatedButton(
-                      onPressed: () {
-                        salvarConfiguracao(); // Salva e atualiza os valores
-                        Navigator.pop(context); // Fecha o modal
-                      },
-                      child: Text('Salvar'),
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Venda por combo: ${vendaPorCombo ? "Ativado" : "Desativado"}'),
+                        ElevatedButton(
+                          onPressed: () {
+                            setModalState(() {
+                              vendaPorCombo = !vendaPorCombo;
+                              if (vendaPorCombo) {
+                                valorCartela = '10';
+                              } else {
+                                valorCartela = '';
+                              }
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: vendaPorCombo ? Colors.green : Colors.grey,
+                          ),
+                          child: Text(vendaPorCombo ? 'Desativar' : 'Ativar'),
+                        ),
+                      ],
                     ),
                   ),
+                  SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton(
+                        onPressed: validarCampos,
+                        child: Text('Salvar'),
+                      ),
+                    ],
+                  ),
                 ],
-              ),
-            ],
+              );
+            },
           ),
         );
       },
     );
   }
+
+
+
 
   void _showAlert(String title, String message) {
     showDialog(
@@ -349,7 +398,6 @@ class _FunctionPageState extends State<FunctionPage> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 20),
-              Text(nomeVendedor.isNotEmpty ? 'Vendedor: $nomeVendedor' : 'Vendedor: Não definido'),
               Text(valorCartela.isNotEmpty ? 'Valor: R\$${valorCartela}' : 'Valor: Não definido'),
               SizedBox(height: 20),
               Row(
