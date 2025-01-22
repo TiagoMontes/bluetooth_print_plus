@@ -8,8 +8,9 @@ import 'package:intl/intl.dart';
 enum CmdType { Tsc, Cpcl, Esc }
 
 class FunctionPage extends StatefulWidget {
+  final BluetoothDevice device;
 
-  const FunctionPage({super.key});
+  const FunctionPage(this.device, {super.key});
 
   @override
   State<FunctionPage> createState() => _FunctionPageState();
@@ -53,7 +54,7 @@ class _FunctionPageState extends State<FunctionPage> {
 
     setState(() {
       rangeInicial = int.parse(minCartela);
-      rangeFinal = rangeInicial + 1;
+      rangeFinal = int.parse(maxCartela);
       modalVisible = false;
     });
   }
@@ -70,10 +71,17 @@ class _FunctionPageState extends State<FunctionPage> {
         ? (quantidadeFinal ~/ 6) * double.parse(valorCartela)
         : quantidadeVendida * double.parse(valorCartela);
 
-    // Validate range
+    // Recalculate finalVenda with the updated rangeFinal
     int finalVenda = inicial + quantidadeFinal - 1;
-    if (inicial <= 0 || quantidadeVendida <= 0 || finalVenda > int.parse(maxCartela) || inicial < int.parse(minCartela)) {
-      _showAlert('Erro', 'O intervalo de venda é inválido ou está fora do intervalo configurado');
+
+    // Validate range with the updated rangeFinal
+    if (inicial <= 0 ||
+        quantidadeVendida <= 0 ||
+        finalVenda > rangeFinal || // Use rangeFinal directly here
+        inicial < int.parse(minCartela)) {
+      if (mounted) {
+        _showAlert('Erro', 'O intervalo de venda ${inicial} e ${finalVenda} é inválido ou está fora do intervalo configurado');
+      }
       return;
     }
 
@@ -81,6 +89,7 @@ class _FunctionPageState extends State<FunctionPage> {
       totalQuantidade += quantidadeFinal;
       totalValor += totalVenda;
       intervalosVendidos.add({'inicial': inicial, 'final': finalVenda});
+      rangeInicial = finalVenda + 1; // Atualiza o rangeInicial para a próxima venda
     });
 
     final now = DateTime.now();
@@ -89,49 +98,62 @@ class _FunctionPageState extends State<FunctionPage> {
     // Prepare printData
     final printData = '''
     \n\n
-    ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Boa sorte
-    ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}--------------------------
-    ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(14)}Rodada: $rodada
-    Quantidade: $quantidadeFinal${!vendaPorCombo ? ' x R\$${valorCartela}' : ''}
-    Data/Hora: $formattedDate
-    
-    ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(20)}$inicial - $finalVenda
-    
-    ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Total: R\$${totalVenda.toStringAsFixed(2)}\n
-    \n\n
-  ''';
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Boa sorte
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}--------------------------
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(0)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(14)}Rodada: $rodada
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(0)}Quantidade: $quantidadeFinal${!vendaPorCombo ? ' x R\$${valorCartela}' : ''}
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(0)}Data/Hora: $formattedDate
+      
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(20)}Cartelas
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(20)}$inicial - $finalVenda
+      
+      ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Total: R\$${totalVenda.toStringAsFixed(2)}
+      \n\n
+     ''';
 
     final Uint8List printDataBytes = Uint8List.fromList(utf8.encode(printData));
     try {
       await BluetoothPrintPlus.write(printDataBytes);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Impressão realizada com sucesso!")),
-      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Impressão realizada com sucesso!")),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erro ao imprimir: $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro ao imprimir: $e")),
+        );
+      }
     }
 
-    // Update rangeInicial for next sale
-    setState(() {
-      rangeInicial = finalVenda + 1;
-      _controllerQuantidade.clear();
-    });
+    if (mounted) {
+      setState(() {
+        _controllerQuantidade.clear();
+      });
+    }
   }
-
 
   void finalizarRodada() async {
     final now = DateTime.now();
     final formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
 
+    // Calcula o intervalo restante
+    int restanteInicial = intervalosVendidos.isEmpty ? int.parse(minCartela) : intervalosVendidos.last['final']! + 1;
+    int restanteFinal = int.parse(maxCartela);
+
+    // Verifica se todo o intervalo foi vendido
+    String restante = (restanteInicial > restanteFinal) ? '0' : '$restanteInicial - $restanteFinal';
+
     final printData = '''
       \n\n
       ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Rodada Finalizada!
-      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}Intervalo: ${intervalosVendidos.first['inicial']}-${intervalosVendidos.last['final']}
-      ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Quantidade Vendida: $totalQuantidade
-      ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Total: R\$${totalValor.toStringAsFixed(2)}
-      ${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Data/Hora: $formattedDate
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Intervalo: ${intervalosVendidos.first['inicial']}-${intervalosVendidos.last['final']}
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Quantidade Vendida: $totalQuantidade
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Total: R\$${totalValor.toStringAsFixed(2)}
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Data/Hora: $formattedDate
+      ${String.fromCharCode(27)}${String.fromCharCode(97)}${String.fromCharCode(1)}${String.fromCharCode(27)}${String.fromCharCode(33)}${String.fromCharCode(16)}Restante: $restante
       \n\n
     ''';
 
@@ -141,6 +163,17 @@ class _FunctionPageState extends State<FunctionPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Impressão realizada com sucesso!")),
       );
+      setState(() {
+        rodada++;
+        minCartela = '';
+        maxCartela = '';
+        valorCartela = '';
+        rangeInicial = 0;
+        rangeFinal = 0;
+        totalQuantidade = 0;
+        totalValor = 0.0;
+        intervalosVendidos.clear();
+      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Erro ao imprimir: $e")),
@@ -148,18 +181,81 @@ class _FunctionPageState extends State<FunctionPage> {
     }
   }
 
-    setState(() {
-      rodada++;
-      minCartela = '';
-      maxCartela = '';
-      rangeInicial = 0;
-      rangeFinal = 0;
-      valorCartela = '';
-      totalQuantidade = 0;
-      totalValor = 0.0;
-      intervalosVendidos.clear();
-    });
-    _showAlert('Rodada Finalizada', 'Rodada ${rodada} iniciada');
+  void adicionarMaisCartelas() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        final TextEditingController _controllerQuantidade = TextEditingController();
+        String? errorText;
+
+        void validarCampos() {
+          setState(() {
+            if (_controllerQuantidade.text.isEmpty ||
+                int.tryParse(_controllerQuantidade.text) == null) {
+              errorText = 'Por favor, insira uma quantidade válida';
+            } else {
+              errorText = null;
+              int quantidade = int.parse(_controllerQuantidade.text);
+
+              // Verifica se o combo está ativado e ajusta a quantidade
+              if (vendaPorCombo) {
+                quantidade *= 6;
+              }
+
+              setState(() {
+                rangeFinal += quantidade; // Atualiza o range final
+              });
+
+              Navigator.pop(context);
+            }
+          });
+        }
+
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 16.0,
+            left: 16.0,
+            right: 16.0,
+          ),
+          child: Wrap(
+            children: [
+              Text(
+                'Adicionar Mais Cartelas',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 10),
+              Text(
+                vendaPorCombo
+                    ? 'Insira a quantidade de combos (multiplicado por 6)'
+                    : 'Insira a quantidade de cartelas',
+                style: TextStyle(fontSize: 16),
+              ),
+              SizedBox(height: 10),
+              TextFormField(
+                controller: _controllerQuantidade,
+                decoration: InputDecoration(
+                  labelText: 'Quantidade',
+                  errorText: errorText,
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ElevatedButton(
+                    onPressed: validarCampos,
+                    child: Text('Adicionar'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void exibirModalCartela() {
@@ -392,11 +488,30 @@ class _FunctionPageState extends State<FunctionPage> {
                     foregroundColor: Colors.white
                 ),
               ),
-              SizedBox(height: 10),
-              Text(
-                (minCartela.isNotEmpty && maxCartela.isNotEmpty) ? '$minCartela - $maxCartela' : 'Intervalo não definido',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    (minCartela.isNotEmpty && maxCartela.isNotEmpty) ? '$minCartela - $rangeFinal' : 'Intervalo não definido',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  ElevatedButton(
+                    onPressed: adicionarMaisCartelas,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,// Ajusta o tamanho do botão
+                    ),
+                    child: Text(
+                      '+',
+                      style: TextStyle(
+                        fontSize: 24, // Aumenta o tamanho da fonte
+                        fontWeight: FontWeight.bold, // Torna o texto mais destacado
+                      ),
+                    ),
+                  ),
+                ],
               ),
+
               SizedBox(height: 20),
               Text(valorCartela.isNotEmpty ? 'Valor: R\$${valorCartela}' : 'Valor: Não definido'),
               SizedBox(height: 20),
@@ -406,6 +521,7 @@ class _FunctionPageState extends State<FunctionPage> {
                     child: TextFormField(
                       controller: _controllerQuantidade,
                       decoration: InputDecoration(labelText: 'Quantidade'),
+                      keyboardType: TextInputType.number,
                     ),
                   ),
                   SizedBox(width: 10),
