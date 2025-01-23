@@ -1,7 +1,5 @@
 import 'package:bluetooth_print_plus_example/bluetooth_page.dart';
-import 'package:bluetooth_print_plus_example/settings_page.dart';
 import 'package:flutter/material.dart';
-import 'app_page.dart';
 
 void main() {
   runApp(MyApp());

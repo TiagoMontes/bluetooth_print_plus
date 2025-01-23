@@ -73,6 +73,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
             Navigator.push(
                 context,
                 MaterialPageRoute(
+                    // builder: (context) => FunctionPage(_device!)));
                     builder: (context) => FunctionPage(_device!)));
           });
           break;
