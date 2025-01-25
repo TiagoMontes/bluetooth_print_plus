@@ -73,6 +73,7 @@ class _FunctionPageState extends State<FunctionPage> {
       rodada = prefs.getInt('rodada') ?? 1;
       rangeInicial = prefs.getInt('rangeInicial') ?? 0;
       rangeFinal = prefs.getInt('rangeFinal') ?? 0;
+      vendaPorCombo = prefs.getBool('vendaPorCombo') ?? false;
     });
   }
 
@@ -165,7 +166,9 @@ class _FunctionPageState extends State<FunctionPage> {
   }
 
   void finalizarVenda() async {
-    int inicial = rangeInicial;
+    int inicial = (intervalosVendidos.isNotEmpty && intervalosVendidos.last['final'] != null)
+        ? intervalosVendidos.last['final']! + 1
+        : rangeInicial;
     int quantidadeVendida = int.tryParse(_controllerQuantidade.text) ?? 0;
     int quantidadeFinal = vendaPorCombo ? quantidadeVendida * 6 : quantidadeVendida;
     double totalVenda = vendaPorCombo
@@ -191,7 +194,7 @@ class _FunctionPageState extends State<FunctionPage> {
     salvarDadosVendaLocal();
 
     final now = DateTime.now();
-    final formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
+    final formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(now);
 
     if (quantidadeVendida > 0) {
       setState(() {
@@ -216,23 +219,70 @@ class _FunctionPageState extends State<FunctionPage> {
 
       // Gera o conteúdo para impressão
       List<int> bytes = [];
-      bytes += generator.text('Boa sorte',
-          styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2));
-      bytes += generator.hr(); // Linha separadora
-      bytes += generator.text('Rodada: $rodada',
-          styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2));
       bytes += generator.text(
-          'Quantidade: $quantidadeFinal${!vendaPorCombo ? ' x R\$${valorCartela}' : ''}',
-          styles: PosStyles(align: PosAlign.left));
-      bytes += generator.text('Data/Hora: $formattedDate',
-          styles: PosStyles(align: PosAlign.left));
+        '\n\nBoa sorte',
+        styles: PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          width: PosTextSize.size2,
+        ),
+      );
+      bytes += generator.hr();// Linha separadora
+      bytes += generator.text(
+        '\nRodada: $rodada',
+        styles: PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          height: PosTextSize.size2,
+          width: PosTextSize.size2,
+        ),
+      );
+      bytes += generator.text(
+        '\n${!vendaPorCombo ? 'Unidade: $quantidadeFinal x R\$${valorCartela}' : 'Serie: ${(quantidadeFinal / 6).floor()} x R\$${valorCartela}'}',
+        styles: PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          width: PosTextSize.size1
+        ),
+      );
+      bytes += generator.text(
+        'Data: $formattedDate \n',
+        styles: PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          width: PosTextSize.size1
+        ),
+      );
+      bytes += generator.text('');
       bytes += generator.hr();
-      bytes += generator.text('Cartelas',
-          styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2));
-      bytes += generator.text('$inicial - $finalVenda',
-          styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2));
-      bytes += generator.text('Total: R\$${totalVenda.toStringAsFixed(2)}',
-          styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2));
+      bytes += generator.text(
+        '\nCartelas',
+        styles: PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          height: PosTextSize.size2,
+          width: PosTextSize.size2,
+        ),
+      );
+      bytes += generator.text('');
+      bytes += generator.text(
+        '$inicial - $finalVenda ',
+        styles: PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          height: PosTextSize.size2,
+          width: PosTextSize.size2,
+        ),
+      );
+      bytes += generator.text('');
+      bytes += generator.text(
+        'R\$${totalVenda.toStringAsFixed(2)}\n\n\n\n',
+        styles: PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          width: PosTextSize.size2,
+        ),
+      );
       bytes += generator.cut(); // Finaliza a impressão com corte
 
       final Uint8List data = Uint8List.fromList(bytes);
@@ -271,29 +321,41 @@ class _FunctionPageState extends State<FunctionPage> {
 
     // Adiciona os textos formatados
     bytes += generator.text(
-      'Rodada Finalizada!',
-      styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2),
+      'Rodada $rodada \nFinalizada!',
+      styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2, width: PosTextSize.size2),
     );
+    bytes += generator.text('');
+    bytes += generator.hr();
+
+    bytes += generator.text('');
     bytes += generator.text(
-      'Intervalo: ${intervalosVendidos.isNotEmpty ? '${intervalosVendidos.first['inicial']}-${intervalosVendidos.last['final']}' : 'Nenhum'}',
-      styles: PosStyles(align: PosAlign.center, height: PosTextSize.size2),
+      ' \nIntervalos vendidos: ${intervalosVendidos.isNotEmpty ? '${intervalosVendidos.first['inicial']}-${intervalosVendidos.last['final']}' : 'Nenhum'}',
+      styles: PosStyles(align: PosAlign.left, height: PosTextSize.size2),
     );
+
+    bytes += generator.text('');
     bytes += generator.text(
       'Quantidade Vendida: $totalQuantidade',
-      styles: PosStyles(align: PosAlign.center, height: PosTextSize.size2),
+      styles: PosStyles(align: PosAlign.left, height: PosTextSize.size2),
     );
+
+    bytes += generator.text('');
     bytes += generator.text(
       'Total: R\$${totalValor.toStringAsFixed(2)}',
-      styles: PosStyles(align: PosAlign.center, height: PosTextSize.size2),
+      styles: PosStyles(align: PosAlign.left, height: PosTextSize.size2),
     );
+    bytes += generator.text('');
     bytes += generator.text(
       'Data/Hora: $formattedDate',
-      styles: PosStyles(align: PosAlign.center, height: PosTextSize.size2),
+      styles: PosStyles(align: PosAlign.left, height: PosTextSize.size2),
     );
+
+    bytes += generator.text('');
     bytes += generator.text(
-      'Restante: $restante',
-      styles: PosStyles(align: PosAlign.center, height: PosTextSize.size2),
+      'Restante: $restante\n\n\n ',
+      styles: PosStyles(align: PosAlign.left, height: PosTextSize.size2),
     );
+    bytes += generator.text('');
     bytes += generator.cut(); // Finaliza o papel com corte
 
     // Envia os dados para impressão
@@ -367,7 +429,7 @@ class _FunctionPageState extends State<FunctionPage> {
               SizedBox(height: 10),
               Text(
                 vendaPorCombo
-                    ? 'Insira a quantidade de combos (multiplicado por 6)'
+                    ? 'Insira a quantidade de séries (multiplicado por 6)'
                     : 'Insira a quantidade de cartelas',
                 style: TextStyle(fontSize: 16),
               ),
@@ -399,7 +461,7 @@ class _FunctionPageState extends State<FunctionPage> {
 
   void exibirModalCartela() {
     final TextEditingController minCartelaController = TextEditingController(text: minCartela);
-    final TextEditingController maxCartelaController = TextEditingController(text: maxCartela);
+    final TextEditingController maxCartelaController = TextEditingController(text: rangeFinal.toString());
     final TextEditingController valorCartelaController = TextEditingController(text: valorCartela);
 
     showModalBottomSheet(
@@ -468,29 +530,52 @@ class _FunctionPageState extends State<FunctionPage> {
                     controller: valorCartelaController,
                     decoration: InputDecoration(
                       labelText: vendaPorCombo
-                          ? 'Valor do Combo (ex: 15.00)'
+                          ? 'Valor da Série (ex: 15.00)'
                           : 'Valor Unitário (ex: 2.50)',
                       errorText: valorCartelaError,
                     ),
-                    keyboardType: TextInputType.number,
+                    keyboardType: TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (value) {
+                      // Converte vírgula para ponto automaticamente
+                      valorCartelaController.text = value.replaceAll(',', '.');
+                      valorCartelaController.selection = TextSelection.fromPosition(
+                        TextPosition(offset: valorCartelaController.text.length),
+                      );
+                    },
                   ),
                   SizedBox(height: 10),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16.0),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween, // Use spaceBetween para manter o texto à esquerda
                       children: [
-                        Text('Venda por combo: ${vendaPorCombo ? "Ativado" : "Desativado"}'),
+                        Expanded(
+                          child: Text(
+                            'Venda por Série: ${vendaPorCombo ? "Ativado" : "Desativado"}',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ),
                         ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
+                            final prefs = await SharedPreferences.getInstance();
+
+                            // Atualiza o estado dentro do modal e no estado principal
                             setModalState(() {
-                              vendaPorCombo = !vendaPorCombo;
+                              vendaPorCombo = !vendaPorCombo; // Alterna o estado
                               if (vendaPorCombo) {
                                 valorCartelaController.text = '10'; // Valor padrão para combos
                               } else {
                                 valorCartelaController.text = '1'; // Ajusta para 1 ao desativar
                               }
                             });
+
+                            // Atualiza o estado principal para refletir na interface geral
+                            setState(() {
+                              vendaPorCombo = vendaPorCombo;
+                            });
+
+                            // Atualiza o valor no SharedPreferences
+                            await prefs.setBool('vendaPorCombo', vendaPorCombo);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: vendaPorCombo ? Colors.green : Colors.grey,
@@ -500,6 +585,8 @@ class _FunctionPageState extends State<FunctionPage> {
                       ],
                     ),
                   ),
+
+
                   SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -574,6 +661,8 @@ class _FunctionPageState extends State<FunctionPage> {
   }
 
   Widget build(BuildContext context) {
+    int restantes = rangeFinal - (intervalosVendidos.isNotEmpty ? (intervalosVendidos.last['final'] ?? 0) : rangeInicial);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Boa Sorte!'),
@@ -656,22 +745,43 @@ class _FunctionPageState extends State<FunctionPage> {
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white),
                 child: Text('Finalizar Venda'),
-              ),
-              SizedBox(height: 20),
-              Text('Quantidade Total Vendida: $totalQuantidade'),
-              Text('Valor Total Vendido: R\$${totalValor.toStringAsFixed(2)}'),
-              Text(
-                'Intervalos Vendidos: ${intervalosVendidos.isEmpty ? 'Nenhum' : '${intervalosVendidos.first['inicial']}-${intervalosVendidos.last['final']}'}',
+              ),IntrinsicWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, // Alinha os itens à esquerda
+                  children: [
+                    Text('Quantidade Total Vendida: $totalQuantidade'),
+                    Text('Valor Total Vendido: R\$${totalValor.toStringAsFixed(2)}'),
+                    Text(
+                      'Intervalos Vendidos: ${intervalosVendidos.isEmpty ? 'Nenhum' : '${intervalosVendidos.first['inicial']}-${intervalosVendidos.last['final']}'}',
+                    ),
+                    Container(
+                      margin: EdgeInsets.only(top: 4), // Margin top de 4px
+                      padding: EdgeInsets.all(8), // Padding geral de 8px
+                      decoration: BoxDecoration(
+                        color: Colors.red, // Fundo vermelho
+                        borderRadius: BorderRadius.circular(8), // Bordas arredondadas
+                      ),
+                      child: Text(
+                        vendaPorCombo
+                            ? 'Falta vender: ${(restantes / 6).floor()} séries'
+                            : 'Falta vender: $restantes cartelas',
+                        style: TextStyle(
+                          color: Colors.white, // Texto branco
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: finalizarRodada,
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white),
-                child: Text('Finalizar Rodada', selectionColor: Colors.red),
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text('Finalizar Rodada'),
               ),
-              SizedBox(height: 20),
 
               // Adicionar o histórico da última venda
               if (ultimaVenda != null)
@@ -712,39 +822,43 @@ class _FunctionPageState extends State<FunctionPage> {
                             // Adiciona os textos formatados
                             bytes += generator.text(
                               'Boa sorte',
-                              styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2),
+                              styles: PosStyles(align: PosAlign.center, bold: true, width: PosTextSize.size2),
                             );
                             bytes += generator.hr();
                             bytes += generator.text(
-                              'Rodada: ${ultimaVenda!['rodada']}',
-                              styles: PosStyles(align: PosAlign.center, height: PosTextSize.size2),
+                              '\nRodada: ${ultimaVenda!['rodada']}',
+                              styles: PosStyles(align: PosAlign.center, height: PosTextSize.size2, width: PosTextSize.size2),
                             );
                             bytes += generator.text(
-                              'Quantidade: ${ultimaVenda!['quantidadeFinal']}',
-                              styles: PosStyles(align: PosAlign.left, height: PosTextSize.size1),
+                              '\nQuantidade: ${ultimaVenda!['quantidadeFinal']}',
+                              styles: PosStyles(align: PosAlign.center, height: PosTextSize.size1),
                             );
                             bytes += generator.text(
-                              'Data/Hora: ${ultimaVenda!['dataHora']}',
-                              styles: PosStyles(align: PosAlign.left, height: PosTextSize.size1),
+                              '\nData: ${ultimaVenda!['dataHora']}',
+                              styles: PosStyles(align: PosAlign.center, height: PosTextSize.size1),
+                            );
+                            bytes += generator.text('');
+                            bytes += generator.hr();
+                            bytes += generator.text(
+                              '\nCartelas\n',
+                              styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2, width: PosTextSize.size2),
+                            );
+                            bytes += generator.text('');
+                            bytes += generator.text(
+                              '${ultimaVenda!['inicial']} - ${ultimaVenda!['finalVenda']}\n',
+                              styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2, width: PosTextSize.size2),
+                            );
+                            bytes += generator.text('');
+                            bytes += generator.text(
+                              'R\$${ultimaVenda!['totalVenda']}\n\n',
+                              styles: PosStyles(align: PosAlign.center, bold: true, width: PosTextSize.size2),
                             );
                             bytes += generator.hr();
                             bytes += generator.text(
-                              'Cartelas',
-                              styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2),
+                              'Reimpressao\n\n\n\n ',
+                              styles: PosStyles(align: PosAlign.center, bold: true, width: PosTextSize.size1),
                             );
-                            bytes += generator.text(
-                              '${ultimaVenda!['inicial']} - ${ultimaVenda!['finalVenda']}',
-                              styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2),
-                            );
-                            bytes += generator.text(
-                              'Total: R\$${ultimaVenda!['totalVenda']}',
-                              styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2),
-                            );
-                            bytes += generator.hr();
-                            bytes += generator.text(
-                              'Reimpressao',
-                              styles: PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size1),
-                            );
+                            bytes += generator.text('');
                             bytes += generator.cut(); // Finaliza o papel com corte
 
                             // Envia os dados para impressão
